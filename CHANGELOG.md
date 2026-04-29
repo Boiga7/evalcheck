@@ -2,6 +2,18 @@
 
 All notable changes to evalcheck.
 
+## [0.2.0] - 2026-04-29
+
+### Added
+- `OllamaJudge` — local-first judge backed by Ollama's OpenAI-compatible endpoint at `http://localhost:11434/v1`. Configurable via `EVALCHECK_JUDGE_MODEL=ollama:llama3.2:3b` or `EVALCHECK_OLLAMA_HOST` for remote instances.
+- `make_judge` factory now accepts `ollama:<model>` specs.
+
+### Changed
+- Plain-language code comments throughout the source explaining the why and the gotchas the project has hit (PEM normalisation, PKCS#1 vs PKCS#8, workflow_run.pull_requests reliability, etc).
+
+### Fixed
+- None — 0.1.0 was found to work correctly end-to-end on 2026-04-29 after fixing the matching issues in the GitHub App (separate repo).
+
 ## [0.1.0] - 2026-04-29
 
 First public release of the OSS pytest plugin.

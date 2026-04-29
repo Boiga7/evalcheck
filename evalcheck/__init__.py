@@ -16,7 +16,7 @@ from evalcheck.metrics import (
 )
 from evalcheck.types import EvalOutput
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "EvalOutput",

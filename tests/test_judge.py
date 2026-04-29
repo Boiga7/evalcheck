@@ -6,7 +6,13 @@ import pytest
 import respx
 from httpx import Response
 
-from evalcheck.judge import AnthropicJudge, JudgeResponse, OpenAIJudge, make_judge
+from evalcheck.judge import (
+    AnthropicJudge,
+    JudgeResponse,
+    OllamaJudge,
+    OpenAIJudge,
+    make_judge,
+)
 
 
 def _openai_response_payload(content: str) -> dict:
@@ -126,6 +132,44 @@ def test_make_judge_reads_env_var_when_no_spec(monkeypatch):
     assert isinstance(judge, AnthropicJudge)
 
 
+@respx.mock
+def test_ollama_judge_returns_parsed_score():
+    respx.post("http://localhost:11434/v1/chat/completions").mock(
+        return_value=Response(
+            200,
+            json=_openai_response_payload(
+                json.dumps({"score": 0.6, "reasoning": "local model said so"})
+            ),
+        )
+    )
+
+    judge = OllamaJudge(model="llama3.2:3b")
+    response = judge.score(system="evaluator", user="score this")
+
+    assert response.score == 0.6
+    assert response.reasoning == "local model said so"
+
+
+@respx.mock
+def test_ollama_judge_uses_custom_host(monkeypatch):
+    monkeypatch.setenv("EVALCHECK_OLLAMA_HOST", "http://remote-ollama:8080")
+    respx.post("http://remote-ollama:8080/v1/chat/completions").mock(
+        return_value=Response(
+            200, json=_openai_response_payload(json.dumps({"score": 0.4}))
+        )
+    )
+
+    judge = OllamaJudge()
+    response = judge.score(system="x", user="y")
+
+    assert response.score == 0.4
+
+
+def test_make_judge_parses_ollama_spec():
+    judge = make_judge("ollama:llama3.2:3b")
+    assert isinstance(judge, OllamaJudge)
+
+
 def test_openai_judge_raises_install_hint_when_sdk_missing(monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "openai", None)
     with pytest.raises(ImportError, match="evalcheck\\[openai\\]"):
@@ -136,3 +180,9 @@ def test_anthropic_judge_raises_install_hint_when_sdk_missing(monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "anthropic", None)
     with pytest.raises(ImportError, match="evalcheck\\[anthropic\\]"):
         AnthropicJudge(api_key="sk-ant-test")
+
+
+def test_ollama_judge_raises_install_hint_when_sdk_missing(monkeypatch):
+    monkeypatch.setitem(__import__("sys").modules, "openai", None)
+    with pytest.raises(ImportError, match="evalcheck\\[openai\\]"):
+        OllamaJudge()
