@@ -37,11 +37,13 @@ pip install evalcheck
 
 ```python
 # tests/test_summarization.py
-from evalcheck import eval, faithfulness
+from evalcheck import EvalOutput, eval, faithfulness
 
-@eval(metric=faithfulness, threshold=0.75)
-def test_summary(article):
-    return summarize(article)
+@eval(faithfulness, threshold=0.75)
+def test_summary():
+    article = load_fixture("article.md")
+    summary = summarise(article)
+    return EvalOutput(output=summary, context=article)
 ```
 
 ```bash
@@ -69,57 +71,92 @@ The wedge is the bottom three rows. Nobody else ships them.
 
 Every meaningful CI signal in modern dev — coverage, bundle size, type errors, accessibility — shows up as a PR comment or a Check status. Engineers triage from the PR view, not from a separate dashboard. LLM eval tooling skipped that pattern. evalcheck closes the gap.
 
-The pytest-native path matters because eval logic shares fixtures with the rest of your test suite: the same DB seeded the same way, the same mocked HTTP client, the same auth context. Running evals as a separate parallel test framework doubles the surface area and rots within a quarter.
+The pytest-native path matters because eval logic shares fixtures with the rest of your test suite: the same DB seeded the same way, the same mocked HTTP client, the same auth context. Running evals as a parallel test framework doubles the surface area and rots within a quarter.
+
+## Built-in metrics
+
+- `faithfulness` — output grounded in the supplied context (LLM-as-judge)
+- `relevance` — output answers the input (LLM-as-judge)
+- `correctness` — output matches the expected answer, allowing paraphrase (LLM-as-judge)
+- `exact_match` — deterministic string equality
+- `regex_match` — deterministic pattern match
+- `custom(fn)` — any callable returning a float in [0, 1]
+
+Multi-provider judge: OpenAI, Anthropic, and Ollama (local) out of the box. Configurable per metric or globally via `EVALCHECK_JUDGE_MODEL`.
+
+## Examples
+
+Runnable Jupyter notebooks under [`examples/`](examples/) for the most common stacks:
+
+- [`langchain_rag.ipynb`](examples/langchain_rag.ipynb) — LangChain RAG pipeline → faithfulness + correctness in CI
+- [`llamaindex_query_engine.ipynb`](examples/llamaindex_query_engine.ipynb) — LlamaIndex `QueryEngine` → faithfulness + relevance
+- [`openai_judge_in_ci.ipynb`](examples/openai_judge_in_ci.ipynb) — OpenAI `response_format: json_object` for a homegrown judge metric
+
+## Comparisons
+
+Honest comparisons against the alternatives, written by the maintainer:
+
+- [evalcheck vs deepeval](docs/comparisons/vs-deepeval.md) — the largest LLM eval framework in Python
+- [evalcheck vs pytest-evals](docs/comparisons/vs-pytest-evals.md) — the closest pytest-native analogue
 
 ## Pricing
 
 - **OSS plugin** (`pip install evalcheck`) — MIT, free forever. Runs locally and in CI. Writes baselines to `.evalcheck/snapshots/`. Full functionality without ever signing up.
-- **GitHub App** — free for public repos and the first 50 evals per private-repo run. $19 per private repo per month above that.
-- **Hosted dashboard** (later, optional) — historical trend lines, model-vs-model side-by-sides, drill-into-failures. $49/team/month. Reads the same JSON snapshots — opting in changes nothing about how the plugin runs.
+- **Free** GitHub App tier — public repos and the first 50 evals per private-repo run. Includes the PR comment, the GitHub Check status, and the diff against your baseline.
+- **Pro** — $19 per private repo per month, billed via [GitHub Marketplace](https://github.com/marketplace/evalcheck). Unlimited evals per run, priority support, and the hosted dashboard tier when it ships.
 
-The OSS plugin is intentionally complete on its own. The GitHub App and dashboard are pure convenience layers; teams that prefer their own CI tooling can render the JSON output however they want.
+The OSS plugin is intentionally complete on its own. The Pro tier exists for teams that have outgrown the free quota; teams that prefer their own CI tooling can render the JSON output however they want.
 
-## Built-in metrics (v1)
+## What it doesn't do
 
-- `faithfulness` — output grounded in the supplied context (LLM-as-judge)
-- `relevance` — output answers the input
-- `correctness` — output matches an expected answer (LLM-as-judge with a rubric)
-- `exact_match` — deterministic string equality
-- `regex_match` — deterministic pattern match
-- `custom(fn)` — arbitrary scorer returning a float in [0, 1]
+- Host your eval history (it's git-committed).
+- Generate datasets for you.
+- Track cost or latency (use observability tools).
+- Slack, Teams, or Discord integrations (the PR comment is the surface).
+- SSO, RBAC, multi-repo org views.
+- A web playground.
 
-Multi-provider out of the box (OpenAI, Anthropic, local via Ollama). Judge model configurable per metric.
+Keeping the surface this small is what lets one person maintain it. Adjacent features earn their place by being requested by paying users, not by guesswork.
 
-## Roadmap
+## Configuration
 
-| Weeks | Phase | Output |
-|---|---|---|
-| 1–3 | Plugin v1 | `pip install evalcheck` works. `@eval` decorator, 6 built-in metrics, JSON snapshot, plain `pytest` invocation, multi-provider. OSS on GitHub from day one. llms.txt on docs. |
-| 4–6 | GitHub App v1 | Webhook receives push, runs evals in a sandboxed runner, posts PR comment, sets Check status. Free tier live. |
-| 7–9 | First 10 paying installs | Cookbook PRs into LangChain, LlamaIndex, OpenAI examples. One honest "Show HN" post. Direct outreach to maintainers of public AI repos that already have eval scripts in the repo but no CI integration. No sales calls. |
-| 10–12 | Compounding distribution | Programmatic SEO: `evalcheck vs deepeval`, `evalcheck vs pytest-evals`, `LLM eval CI GitHub Action`. Marketplace listing. Badge embed on README. PyPI download counter on landing page. |
+The decorator is the configuration surface. There is no global `[tool.evalcheck]` config in v0.2; per-decorator overrides cover everything users have asked for so far.
 
-## What's not in v1
+```python
+@eval(
+    metric,                       # any callable returning a float in [0, 1]
+    threshold=0.7,                # fail if score below this
+    regression_tolerance=0.05,    # fail if score drops > this below baseline
+    baseline_path=None,           # default: .evalcheck/snapshots/baseline.json
+    judge=None,                   # custom judge for LLM-as-judge metrics
+)
+```
 
-- Hosted historical dashboard — use `git log` on `.evalcheck/snapshots/`
-- Automatic dataset generation
-- Slack / Teams / Discord notifications
-- SSO, RBAC, multi-repo org views
-- Cost / latency tracking (it's a separate concern; observability tools own that)
-- A web playground
+Provider env vars:
 
-Keeping the surface this small is the only way one person ships a working product in 12 weekends.
+- `EVALCHECK_JUDGE_MODEL` — e.g. `openai:gpt-4o-mini`, `anthropic:claude-haiku-4-5`, `ollama:llama3.2:3b`
+- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` — passed through to the respective SDKs
+- `EVALCHECK_OLLAMA_HOST` — for remote Ollama servers (defaults to `http://localhost:11434`)
 
-## Kill criterion
+## CLI
 
-Day 90: under 500 weekly PyPI downloads **and** under 3 paying GitHub App installs. Either alone is salvageable; both together means the bundlesize-for-prompts framing didn't land and the OSS-to-paid funnel isn't compounding. Walk away cleanly — keep the OSS plugin published, take the lessons into mcpguard.
+```bash
+evalcheck snapshot --update     # bless results.json as the new baseline
+```
 
-## Honest risks
+## Adding the GitHub App
 
-- **deepeval can ship a real pytest plugin in a weekend.** They have 15.1k stars of momentum. Mitigation: get the GitHub App and PR-comment surface live fast — that's the moat, not the plugin.
-- **`pytest-evals` can ship metrics in a weekend.** They have the pytest-native pattern down. Mitigation: same — the comment surface and GitHub Check are non-trivial to add and require infra they don't have.
-- **The "engineers will adopt LLM evals in CI" bet.** Not yet a default behaviour for most teams. evalcheck has to teach the habit while selling the tool. Distribution is the harder half of the work.
+1. Install [evalcheck](https://github.com/marketplace/evalcheck) from the GitHub Marketplace.
+2. Pick the repos you want it to watch.
+3. Add an `actions/upload-artifact@v4` step to your CI workflow that uploads `.evalcheck/results.json` under the name `evalcheck-results`.
+4. Push a PR. The comment shows up automatically.
 
-## Status
+A full setup walkthrough lives in the [evalcheck-app repo](https://github.com/Boiga7/evalcheck-app).
 
-Pre-build. README written first deliberately — if the pitch isn't compelling on this page, no amount of code rescues it. If you read this far and the wedge feels real, that's the green light.
+## Contributing
+
+Issues and PRs welcome. The plugin is small enough that a useful change is rarely more than a single file. Run the test suite with `pytest`; coverage is enforced at 95% in CI.
+
+## License
+
+MIT.
