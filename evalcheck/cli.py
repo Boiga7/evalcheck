@@ -1,4 +1,10 @@
-"""evalcheck CLI."""
+"""evalcheck command-line interface.
+
+One subcommand for now: `evalcheck snapshot --update`, which copies
+the latest results.json over the committed baseline.json. The user
+then commits the new baseline. That's the whole "bless this run"
+ceremony — no DB, no API call, just a file move.
+"""
 
 import argparse
 import shutil
@@ -27,6 +33,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "snapshot" and args.update:
         return _snapshot_update(args.results, args.baseline)
 
+    # Currently `snapshot` without `--update` has nothing to do. snap.error
+    # exits with the right usage hint instead of returning silently — keeps
+    # the CLI honest about which combinations actually do work.
     snap.error("snapshot requires --update (no other actions implemented)")
 
 

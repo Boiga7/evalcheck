@@ -1,4 +1,12 @@
-"""LLM judge runner — provider abstraction for OpenAI and Anthropic."""
+"""LLM-as-judge runner — provider-agnostic interface plus OpenAI and
+Anthropic adapters.
+
+The shape we want from any judge: pass it a system prompt and a user
+prompt, get back a score in [0, 1]. We ask the model to return JSON with
+{score, reasoning} so the score is parseable and the reasoning is there
+for diagnostics. temperature=0 to keep scores stable across runs — vital
+because regression detection is otherwise just noise vs noise.
+"""
 
 import json
 import os
@@ -13,10 +21,20 @@ class JudgeResponse:
 
 
 class Judge(Protocol):
+    """Anything with a `score(system, user) -> JudgeResponse` method qualifies.
+
+    Users can pass their own judge implementation via `judge=` on a metric
+    if they want to swap providers, mock for tests, or wrap an internal
+    LLM gateway.
+    """
     def score(self, system: str, user: str) -> JudgeResponse: ...
 
 
 def _parse_judge_payload(text: str) -> JudgeResponse:
+    """Models occasionally hand back scores outside [0, 1] — clamp instead
+    of failing the test, since a clamp is closer to user intent than an
+    explosion mid-suite.
+    """
     data = json.loads(text)
     raw_score = float(data["score"])
     clamped = max(0.0, min(1.0, raw_score))
@@ -24,6 +42,11 @@ def _parse_judge_payload(text: str) -> JudgeResponse:
 
 
 class OpenAIJudge:
+    """OpenAI-backed judge. Lazy import of the openai package so users who
+    only want the deterministic metrics (or only Anthropic) don't have to
+    install OpenAI's SDK.
+    """
+
     def __init__(self, model: str = "gpt-4o-mini", api_key: str | None = None):
         try:
             from openai import OpenAI
@@ -43,6 +66,8 @@ class OpenAIJudge:
                 {"role": "user", "content": user},
             ],
             temperature=0,
+            # Forces JSON output instead of relying on the system prompt
+            # alone. Newer models honour the prompt fine, older ones drift.
             response_format={"type": "json_object"},
         )
         content = completion.choices[0].message.content or ""
@@ -50,6 +75,8 @@ class OpenAIJudge:
 
 
 class AnthropicJudge:
+    """Anthropic-backed judge. Same shape as OpenAIJudge."""
+
     def __init__(
         self, model: str = "claude-haiku-4-5", api_key: str | None = None
     ):
@@ -73,6 +100,9 @@ class AnthropicJudge:
             temperature=0,
             messages=[{"role": "user", "content": user}],
         )
+        # Anthropic responses are a list of content blocks. We assume the
+        # judge returns a single text block; concatenate just in case the
+        # model ever splits its response.
         text = "".join(
             block.text for block in message.content if hasattr(block, "text")
         )
@@ -80,6 +110,12 @@ class AnthropicJudge:
 
 
 def make_judge(spec: str | None = None, **kwargs: Any) -> Judge:
+    """Factory that picks a provider from a `provider:model` string.
+
+    Users normally don't call this directly — built-in metrics call it
+    when no `judge=` was passed via the decorator. The env var lets
+    teams swap models project-wide without editing every test.
+    """
     spec = spec or os.environ.get("EVALCHECK_JUDGE_MODEL", "openai:gpt-4o-mini")
     provider, _, model = spec.partition(":")
     if provider == "openai":

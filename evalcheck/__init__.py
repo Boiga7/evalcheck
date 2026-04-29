@@ -1,4 +1,10 @@
-"""evalcheck — PR comments for LLM eval regressions."""
+"""evalcheck — PR comments for LLM eval regressions.
+
+Public API surface: the `@eval` decorator, the `EvalOutput` return type,
+and the six built-in metrics. Everything else (judge, snapshot, runtime,
+plugin hooks) is implementation detail accessed via the pytest plugin
+machinery, not directly imported by users.
+"""
 
 from evalcheck.decorator import eval
 from evalcheck.metrics import (
