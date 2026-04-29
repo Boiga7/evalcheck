@@ -123,3 +123,4 @@ Day 90: under 500 weekly PyPI downloads **and** under 3 paying GitHub App instal
 ## Status
 
 Pre-build. README written first deliberately — if the pitch isn't compelling on this page, no amount of code rescues it. If you read this far and the wedge feels real, that's the green light.
+
