@@ -1,0 +1,98 @@
+# evalcheck
+
+> A pytest plugin and GitHub App that posts PR comments for LLM eval regressions. Plain `pytest` invocation; baselines committed to git; no SaaS account required.
+
+## Quickstart
+
+```python
+from evalcheck import EvalOutput, eval, faithfulness
+
+@eval(faithfulness, threshold=0.75)
+def test_summary():
+    return EvalOutput(output=summarise(article), context=article)
+```
+
+Run with `pytest`. Results write to `.evalcheck/results.json` automatically. Bless the first run as the baseline with `evalcheck snapshot --update` and commit `.evalcheck/snapshots/baseline.json`. Subsequent runs fail if any score drops below `baseline - 0.05`.
+
+## Built-in metrics
+
+- `exact_match(output, expected) -> float` — deterministic, returns 1.0 or 0.0.
+- `regex_match(output, pattern, full_match=False) -> float` — deterministic.
+- `faithfulness(output, context, judge=None) -> float` — LLM-as-judge: is the output supported by the context.
+- `relevance(output, input, judge=None) -> float` — LLM-as-judge: does the output answer the input.
+- `correctness(output, expected, judge=None) -> float` — LLM-as-judge with semantic equivalence.
+- `custom(fn)` — pass any `Callable[..., float]` returning [0, 1].
+
+## Judge providers
+
+`OpenAIJudge` and `AnthropicJudge` ship out of the box. Configurable via `EVALCHECK_JUDGE_MODEL` (e.g. `openai:gpt-4o-mini`, `anthropic:claude-haiku-4-5`). Judge model uses `temperature=0` for determinism.
+
+## File: pyproject.toml
+
+```toml
+[project]
+dependencies = ["evalcheck"]
+# or [project.optional-dependencies]: ["evalcheck[anthropic]"], etc.
+```
+
+## Configuration
+
+The decorator is the configuration surface. There is intentionally no global `[tool.evalcheck]` config in v0.1.
+
+```python
+@eval(
+    metric,                       # callable returning float in [0, 1]
+    threshold=0.7,                # fail if score below this
+    regression_tolerance=0.05,    # fail if score drops > this below baseline
+    baseline_path=None,           # default: .evalcheck/snapshots/baseline.json
+    test_id=None,                 # default: PYTEST_CURRENT_TEST
+    **metric_kwargs,              # forwarded to the metric (e.g. pattern, judge)
+)
+```
+
+## Snapshot schema
+
+`.evalcheck/snapshots/baseline.json` and `.evalcheck/results.json` share this shape:
+
+```json
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "test_id": "tests/test_x.py::test_a",
+      "metric": "faithfulness",
+      "score": 0.84,
+      "threshold": 0.7,
+      "timestamp": "2026-04-29T10:00:00+00:00"
+    }
+  ]
+}
+```
+
+## CLI
+
+- `evalcheck snapshot --update` — bless `.evalcheck/results.json` as the new baseline.
+- `evalcheck snapshot --update --results <path> --baseline <path>` — custom paths.
+
+## What evalcheck does NOT do
+
+- A web playground, dashboard, or hosted service (the OSS plugin is git-only).
+- Cost or latency tracking (use observability tools).
+- Dataset generation.
+- Model fine-tuning suggestions.
+
+## Repository layout
+
+- `evalcheck/decorator.py` — the `@eval` decorator wrapper.
+- `evalcheck/plugin.py` — pytest hooks (`pytest_sessionstart`, `pytest_sessionfinish`).
+- `evalcheck/judge.py` — provider abstraction.
+- `evalcheck/metrics/` — metric implementations.
+- `evalcheck/snapshot.py` — JSON read/write.
+- `evalcheck/cli.py` — `evalcheck` command.
+
+## Source
+
+- Plugin: https://github.com/Boiga7/evalcheck
+- GitHub App (paired): https://github.com/Boiga7/evalcheck-app
+- PyPI: https://pypi.org/project/evalcheck/
+- Comparisons: https://github.com/Boiga7/evalcheck/tree/main/docs/comparisons

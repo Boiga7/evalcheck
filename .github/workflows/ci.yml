@@ -26,3 +26,14 @@ jobs:
           pip install coverage
           coverage run -m pytest tests/
           coverage report --fail-under=95
+      - name: Synthesise eval results for self-test
+        if: always()
+        run: |
+          mkdir -p .evalcheck
+          echo '{"schema_version":1,"runs":[]}' > .evalcheck/results.json
+      - name: Upload evalcheck results
+        uses: actions/upload-artifact@v4
+        if: always() && matrix.python-version == '3.12'
+        with:
+          name: evalcheck-results
+          path: .evalcheck/results.json
