@@ -1,5 +1,11 @@
 # evalcheck
 
+[![PyPI](https://img.shields.io/pypi/v/evalcheck)](https://pypi.org/project/evalcheck/)
+[![Python](https://img.shields.io/pypi/pyversions/evalcheck)](https://pypi.org/project/evalcheck/)
+[![License](https://img.shields.io/pypi/l/evalcheck)](LICENSE)
+[![CI](https://github.com/Boiga7/evalcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Boiga7/evalcheck/actions/workflows/ci.yml)
+[![Downloads](https://img.shields.io/pypi/dm/evalcheck)](https://pypi.org/project/evalcheck/)
+
 > Bundlesize for your LLM evals. A pytest plugin and GitHub App that posts a PR comment showing which evals regressed, improved, or are new — every time you push.
 
 ## The pitch
