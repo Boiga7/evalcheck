@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evalcheck"
+version = "0.1.0"
+description = "PR comments for LLM eval regressions. A pytest plugin and GitHub App."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Boiga7" }]
+keywords = ["pytest", "llm", "evals", "testing", "ci"]
+classifiers = [
+    "Framework :: Pytest",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "pytest>=7.0",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.50"]
+anthropic = ["anthropic>=0.40"]
+all = ["openai>=1.50", "anthropic>=0.40"]
+dev = [
+    "pytest-cov>=4.0",
+    "respx>=0.20",
+    "openai>=1.50",
+    "anthropic>=0.40",
+]
+
+[project.urls]
+Homepage = "https://github.com/Boiga7/evalcheck"
+Repository = "https://github.com/Boiga7/evalcheck"
+Issues = "https://github.com/Boiga7/evalcheck/issues"
+Changelog = "https://github.com/Boiga7/evalcheck/blob/main/CHANGELOG.md"
+
+[project.entry-points.pytest11]
+evalcheck = "evalcheck.plugin"
+
+[project.scripts]
+evalcheck = "evalcheck.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["evalcheck*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["evalcheck"]
+relative_files = true
+omit = ["evalcheck/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.$",
+]
