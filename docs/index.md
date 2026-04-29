@@ -13,10 +13,6 @@ Coming next:
 - evalcheck vs braintrust (hosted, premium)
 - evalcheck vs Inspect (research-shaped, UK AISI)
 
-## Outreach drafts
-
-Pre-flight notes for contributing examples upstream and submitting a Show HN. These live in [`outreach/`](../outreach/) and explain *why* each PR is shaped the way it is — not just the copy itself.
-
 ## Schema reference
 
 The `llms.txt` at the repo root is the canonical machine-readable summary of the API surface — meant for AI agents (Claude Code, Cursor, GPT) consuming the docs programmatically.
@@ -26,17 +22,18 @@ The `llms.txt` at the repo root is the canonical machine-readable summary of the
 ```
 evalcheck/                  # pytest plugin (this repo)
 ├── evalcheck/              # source
-├── tests/                  # 65 tests, 100% coverage
+├── tests/                  # 69 tests, 100% coverage
 ├── docs/                   # this directory
-├── outreach/               # Show HN, cookbook PR drafts
+├── examples/               # runnable notebooks (LangChain, LlamaIndex, OpenAI)
 ├── README.md               # product overview
-├── LANDSCAPE.md            # competitive scan that produced the wedge
-├── v1-plugin-plan.md       # build plan (DONE)
-└── SHIPPING.md             # PyPI release walkthrough
+├── CHANGELOG.md            # release history
+├── CONTRIBUTING.md
+├── PRIVACY.md / TERMS.md / SECURITY.md
+└── LICENSE                 # MIT
 
 evalcheck-app/              # GitHub App (separate repo)
 ├── src/                    # diff + render + GitHub API helpers
 ├── api/webhook.ts          # Vercel function entry
-├── DEPLOY.md               # 15-minute deployment walkthrough
-└── ...
+├── DEPLOY.md               # 15-minute self-host walkthrough
+└── README.md
 ```
